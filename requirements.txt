@@ -1,74 +1,73 @@
 import streamlit as st
 from PIL import Image
+from moviepy.editor import VideoFileClip
 import os
 import io
+import tempfile
 
-# --- CONFIGURATION DE LA PAGE ---
+# --- CONFIGURATION ---
 st.set_page_config(page_title="JUVASON PRO CONVERTER", page_icon="🚀", layout="centered")
 
-# --- DESIGN CSS POUR LE LOOK PRO (Orange & Noir) ---
+# --- DESIGN ORANGE & NOIR ---
 st.markdown("""
     <style>
-    .stApp {
-        background-color: #000000;
-    }
-    h1 {
-        color: #FF4500;
-        font-family: 'Impact', sans-serif;
-        font-size: 60px !important;
-        text-align: center;
-        text-shadow: 2px 2px #8B2500;
-    }
-    .stButton>button {
-        background-color: #FF4500;
-        color: black;
-        border: 3px solid #8B2500;
-        border-radius: 12px;
-        font-weight: bold;
-        height: 3em;
-        width: 100%;
-    }
-    .stButton>button:hover {
-        background-color: #FF8C00;
-        color: white;
-    }
-    div[data-testid="stFrame"] {
-        background-color: #121212;
-        border: 3px solid #FF4500;
-        border-radius: 25px;
-        padding: 20px;
-    }
+    .stApp { background-color: #000000; }
+    h1 { color: #FF4500; font-family: 'Impact', sans-serif; font-size: 55px !important; text-align: center; text-shadow: 2px 2px #8B2500; }
+    .stButton>button { background-color: #FF4500; color: black; border: 3px solid #8B2500; border-radius: 12px; font-weight: bold; width: 100%; }
+    .stButton>button:hover { background-color: #FF8C00; color: white; }
+    .stSelectbox label, .stFileUploader label { color: white !important; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- INTERFACE ---
 st.markdown("<h1>JUVASON PRO</h1>", unsafe_allow_html=True)
-st.write("<p style='text-align: center; color: white;'>Multi-Formats • Haute Fidélité • 2026</p>", unsafe_allow_html=True)
+st.write("<p style='text-align: center; color: white;'>Multi-Formats • Vidéo, Audio, Image • 2026</p>", unsafe_allow_html=True)
 
-with st.container():
-    st.markdown("### 📁 CHOISIR LES IMAGES")
-    uploaded_files = st.file_uploader("", type=["png", "jpg", "jpeg", "webp", "bmp"], accept_multiple_files=True)
+# --- INTERFACE DE FICHIERS ---
+uploaded_files = st.file_uploader("📁 CHOISIR LES FICHIERS (Vidéo ou Image)", accept_multiple_files=True)
 
-    target_format = st.selectbox("FORMAT DE SORTIE :", ["WEBP", "PNG", "JPEG", "ICO", "PDF"])
+if uploaded_files:
+    # On détecte si c'est une vidéo ou une image pour proposer les bons formats
+    first_ext = uploaded_files[0].name.split('.')[-1].lower()
+    is_video = first_ext in ['mp4', 'mov', 'avi', 'mkv']
+    
+    if is_video:
+        formats = ["MP4", "MOV", "AVI", "GIF", "MP3 (Audio seul)"]
+    else:
+        formats = ["WEBP", "PNG", "JPEG", "ICO", "PDF"]
+        
+    target_format = st.selectbox("FORMAT DE SORTIE :", formats)
 
     if st.button("LANCER LA CONVERSION"):
-        if uploaded_files:
-            for uploaded_file in uploaded_files:
-                image = Image.open(uploaded_file).convert("RGB")
-                
-                # Préparation du fichier en mémoire
-                buf = io.BytesIO()
-                image.save(buf, format=target_format)
-                byte_im = buf.getvalue()
+        for uploaded_file in uploaded_files:
+            # Création d'un fichier temporaire pour traiter la donnée
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{first_ext}") as tmp_file:
+                tmp_file.write(uploaded_file.getvalue())
+                tmp_path = tmp_file.name
 
-                # Bouton de téléchargement pour chaque image
-                nom_final = os.path.splitext(uploaded_file.name)[0] + f".{target_format.lower()}"
-                st.download_button(
-                    label=f"⬇️ Télécharger {nom_final}",
-                    data=byte_im,
-                    file_name=nom_final,
-                    mime=f"image/{target_format.lower()}"
-                )
-            st.success("Conversion prête ! Cliquez sur les boutons pour télécharger.")
-        else:
-            st.warning("Sélectionnez des images d'abord !")
+            try:
+                if is_video:
+                    # --- TRAITEMENT VIDÉO ---
+                    clip = VideoFileClip(tmp_path)
+                    out_ext = target_format.split(' ')[0].lower()
+                    out_path = tmp_path.replace(f".{first_ext}", f".{out_ext}")
+                    
+                    if out_ext == "mp3":
+                        clip.audio.write_audiofile(out_path)
+                    else:
+                        clip.write_videofile(out_path, codec="libx264")
+                    
+                    with open(out_path, "rb") as f:
+                        st.download_button(f"⬇️ Télécharger {uploaded_file.name} en {out_ext.upper()}", f, file_name=f"Juvason_{uploaded_file.name.split('.')[0]}.{out_ext}")
+                else:
+                    # --- TRAITEMENT IMAGE ---
+                    img = Image.open(tmp_path).convert("RGB")
+                    buf = io.BytesIO()
+                    img.save(buf, format=target_format)
+                    st.download_button(f"⬇️ Télécharger {uploaded_file.name} en {target_format}", buf.getvalue(), file_name=f"Juvason_{uploaded_file.name.split('.')[0]}.{target_format.lower()}")
+            
+            except Exception as e:
+                st.error(f"Erreur sur {uploaded_file.name}: {e}")
+            finally:
+                if os.path.exists(tmp_path): os.remove(tmp_path)
+
+        st.success("Conversion terminée ! Merci d'utiliser JUVASON.")
