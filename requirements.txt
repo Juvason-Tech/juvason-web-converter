@@ -71,3 +71,7 @@ if uploaded_files:
                 if os.path.exists(tmp_path): os.remove(tmp_path)
 
         st.success("Conversion terminée ! Merci d'utiliser JUVASON.")
+streamlit
+Pillow
+moviepy==1.0.3
+imageio-ffmpeg
