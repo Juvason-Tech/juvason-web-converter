@@ -1,75 +1,74 @@
-import os
-import customtkinter as ctk
+import streamlit as st
 from PIL import Image
-from tkinter import filedialog, messagebox
+import os
+import io
 
-# --- COULEURS OFFICIELLES JUVASON ---
-NOIR_PUR = "#000000"
-NOIR_GRIS = "#121212"
-ORANGE_JUVASON = "#FF4500"  # Orange électrique
-ORANGE_CLAIR = "#FF8C00" 
-OMBRE_3D = "#8B2500"       # Orange très foncé pour l'effet de relief
+# --- CONFIGURATION DE LA PAGE ---
+st.set_page_config(page_title="JUVASON PRO CONVERTER", page_icon="🚀", layout="centered")
 
-ctk.set_appearance_mode("dark")
+# --- DESIGN CSS POUR LE LOOK PRO (Orange & Noir) ---
+st.markdown("""
+    <style>
+    .stApp {
+        background-color: #000000;
+    }
+    h1 {
+        color: #FF4500;
+        font-family: 'Impact', sans-serif;
+        font-size: 60px !important;
+        text-align: center;
+        text-shadow: 2px 2px #8B2500;
+    }
+    .stButton>button {
+        background-color: #FF4500;
+        color: black;
+        border: 3px solid #8B2500;
+        border-radius: 12px;
+        font-weight: bold;
+        height: 3em;
+        width: 100%;
+    }
+    .stButton>button:hover {
+        background-color: #FF8C00;
+        color: white;
+    }
+    div[data-testid="stFrame"] {
+        background-color: #121212;
+        border: 3px solid #FF4500;
+        border-radius: 25px;
+        padding: 20px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-class JuvasonPro(ctk.CTk):
-    def __init__(self):
-        super().__init__()
-        self.title("JUVASON PRO CONVERTER")
-        self.geometry("600x600")
-        self.configure(fg_color=NOIR_PUR)
-        self.fichiers = []
+# --- INTERFACE ---
+st.markdown("<h1>JUVASON PRO</h1>", unsafe_allow_html=True)
+st.write("<p style='text-align: center; color: white;'>Multi-Formats • Haute Fidélité • 2026</p>", unsafe_allow_html=True)
 
-        # Titre avec effet de lueur orange
-        self.title_label = ctk.CTkLabel(self, text="JUVASON PRO", font=("Impact", 50), text_color=ORANGE_JUVASON)
-        self.title_label.pack(pady=(50, 10))
-        
-        # Cadre central avec bordure orange lumineuse
-        self.main_frame = ctk.CTkFrame(self, fg_color=NOIR_GRIS, corner_radius=25, border_width=3, border_color=ORANGE_JUVASON)
-        self.main_frame.pack(pady=20, padx=50, fill="both", expand=True)
+with st.container():
+    st.markdown("### 📁 CHOISIR LES IMAGES")
+    uploaded_files = st.file_uploader("", type=["png", "jpg", "jpeg", "webp", "bmp"], accept_multiple_files=True)
 
-        # 1. BOUTON SÉLECTION (Effet 3D : bordure basse plus foncée)
-        self.btn_select = ctk.CTkButton(self.main_frame, text="📁 CHOISIR LES IMAGES", command=self.ouvrir,
-                                        fg_color=ORANGE_JUVASON, hover_color=ORANGE_CLAIR,
-                                        text_color="black", font=("Arial", 16, "bold"), height=55,
-                                        border_width=4, border_color=OMBRE_3D, corner_radius=12)
-        self.btn_select.pack(pady=30, padx=30, fill="x")
+    target_format = st.selectbox("FORMAT DE SORTIE :", ["WEBP", "PNG", "JPEG", "ICO", "PDF"])
 
-        # Sélecteur de format 
-        self.label_fmt = ctk.CTkLabel(self.main_frame, text="FORMAT DE SORTIE :", font=("Arial", 13, "bold"), text_color="white")
-        self.label_fmt.pack(pady=5)
-        
-        self.menu_format = ctk.CTkOptionMenu(self.main_frame, values=["WEBP", "PNG", "JPEG", "ICO", "PDF"],
-                                             fg_color="#1A1A1A", button_color=ORANGE_JUVASON, 
-                                             button_hover_color=ORANGE_CLAIR, text_color="white",
-                                             dropdown_fg_color="#1A1A1A", corner_radius=10)
-        self.menu_format.pack(pady=10)
+    if st.button("LANCER LA CONVERSION"):
+        if uploaded_files:
+            for uploaded_file in uploaded_files:
+                image = Image.open(uploaded_file).convert("RGB")
+                
+                # Préparation du fichier en mémoire
+                buf = io.BytesIO()
+                image.save(buf, format=target_format)
+                byte_im = buf.getvalue()
 
-        # 2. BOUTON CONVERTIR (Look différent, plus massif)
-        self.btn_run = ctk.CTkButton(self.main_frame, text="LANCER LA CONVERSION", command=self.convertir,
-                                     fg_color="transparent", hover_color="#1A1A1A", text_color=ORANGE_JUVASON,
-                                     font=("Arial", 18, "bold"), height=70, border_width=3, border_color=ORANGE_JUVASON,
-                                     corner_radius=15)
-        self.btn_run.pack(pady=40, padx=30, fill="x")
-
-    def ouvrir(self):
-        self.fichiers = filedialog.askopenfilenames(title="Sélectionnez vos fichiers JUVASON")
-        if self.fichiers:
-            messagebox.showinfo("JUVASON", f"{len(self.fichiers)} images prêtes !")
-
-    def convertir(self):
-        if not self.fichiers:
-            return messagebox.showwarning("JUVASON", "Sélectionnez des images d'abord !")
-        
-        target = self.menu_format.get()
-        out = filedialog.askdirectory(title="Dossier de destination")
-        if out:
-            for f in self.fichiers:
-                img = Image.open(f).convert("RGB")
-                nom = os.path.splitext(os.path.basename(f))[0] + f".{target.lower()}"
-                img.save(os.path.join(out, nom), target)
-            messagebox.showinfo("JUVASON", "Conversion terminée ! Merci d'utiliser JUVASON.")
-
-if __name__ == "__main__":
-    app = JuvasonPro()
-    app.mainloop()
+                # Bouton de téléchargement pour chaque image
+                nom_final = os.path.splitext(uploaded_file.name)[0] + f".{target_format.lower()}"
+                st.download_button(
+                    label=f"⬇️ Télécharger {nom_final}",
+                    data=byte_im,
+                    file_name=nom_final,
+                    mime=f"image/{target_format.lower()}"
+                )
+            st.success("Conversion prête ! Cliquez sur les boutons pour télécharger.")
+        else:
+            st.warning("Sélectionnez des images d'abord !")
