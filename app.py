@@ -5,69 +5,53 @@ import os
 import io
 import tempfile
 
-# --- CONFIGURATION ---
-st.set_page_config(page_title="JUVASON PRO CONVERTER", page_icon="🚀", layout="centered")
-
-# --- DESIGN ORANGE & NOIR ---
+# --- DESIGN JUVASON PRO ---
+st.set_page_config(page_title="JUVASON PRO CONVERTER", layout="centered")
 st.markdown("""
     <style>
     .stApp { background-color: #000000; }
-    h1 { color: #FF4500; font-family: 'Impact', sans-serif; font-size: 55px !important; text-align: center; text-shadow: 2px 2px #8B2500; }
-    .stButton>button { background-color: #FF4500; color: black; border: 3px solid #8B2500; border-radius: 12px; font-weight: bold; width: 100%; }
-    .stButton>button:hover { background-color: #FF8C00; color: white; }
-    .stSelectbox label, .stFileUploader label { color: white !important; font-weight: bold; }
+    h1 { color: #FF4500; font-family: 'Impact', sans-serif; font-size: 50px !important; text-align: center; }
+    .stButton>button { background-color: #28a745; color: white; font-weight: bold; border-radius: 10px; height: 3em; }
+    .stSelectbox label, .stFileUploader label { color: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
-st.markdown("<h1>JUVASON PRO</h1>", unsafe_allow_html=True)
-st.write("<p style='text-align: center; color: white;'>Multi-Formats • Vidéo, Audio, Image • 2026</p>", unsafe_allow_html=True)
+st.markdown("<h1>JUVASON CONVERTER</h1>", unsafe_allow_html=True)
+st.write("<p style='text-align: center; color: white;'>Multi-Formats • Haute Fidélité • 2026</p>", unsafe_allow_html=True)
 
-# --- INTERFACE DE FICHIERS ---
-uploaded_files = st.file_uploader("📁 CHOISIR LES FICHIERS (Vidéo ou Image)", accept_multiple_files=True)
+# --- LOGIQUE DE CONVERSION ---
+uploaded_file = st.file_uploader("Sélectionnez un fichier (Image, Doc, Vidéo, Audio)", type=None)
 
-if uploaded_files:
-    # On détecte si c'est une vidéo ou une image pour proposer les bons formats
-    first_ext = uploaded_files[0].name.split('.')[-1].lower()
-    is_video = first_ext in ['mp4', 'mov', 'avi', 'mkv']
-    
-    if is_video:
-        formats = ["MP4", "MOV", "AVI", "GIF", "MP3 (Audio seul)"]
-    else:
-        formats = ["WEBP", "PNG", "JPEG", "ICO", "PDF"]
-        
-    target_format = st.selectbox("FORMAT DE SORTIE :", formats)
+if uploaded_file:
+    # Liste complète de tes extensions
+    formats = ["PDF", "WEBP", "PNG", "JPG", "GIF", "BMP", "TIFF", "MP3", "WAV", "AAC", "MP4", "AVI", "MOV", "MKV"]
+    target_format = st.selectbox("CHOISIR LE FORMAT :", formats)
 
     if st.button("LANCER LA CONVERSION"):
-        for uploaded_file in uploaded_files:
-            # Création d'un fichier temporaire pour traiter la donnée
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{first_ext}") as tmp_file:
-                tmp_file.write(uploaded_file.getvalue())
-                tmp_path = tmp_file.name
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp:
+            tmp.write(uploaded_file.getvalue())
+            tmp_path = tmp.name
 
-            try:
-                if is_video:
-                    # --- TRAITEMENT VIDÉO ---
-                    clip = VideoFileClip(tmp_path)
-                    out_ext = target_format.split(' ')[0].lower()
-                    out_path = tmp_path.replace(f".{first_ext}", f".{out_ext}")
-                    
-                    if out_ext == "mp3":
-                        clip.audio.write_audiofile(out_path)
-                    else:
-                        clip.write_videofile(out_path, codec="libx264")
-                    
-                    with open(out_path, "rb") as f:
-                        st.download_button(f"⬇️ Télécharger {uploaded_file.name} en {out_ext.upper()}", f, file_name=f"Juvason_{uploaded_file.name.split('.')[0]}.{out_ext}")
-                else:
-                    # --- TRAITEMENT IMAGE ---
-                    img = Image.open(tmp_path).convert("RGB")
-                    buf = io.BytesIO()
-                    img.save(buf, format=target_format)
-                    st.download_button(f"⬇️ Télécharger {uploaded_file.name} en {target_format}", buf.getvalue(), file_name=f"Juvason_{uploaded_file.name.split('.')[0]}.{target_format.lower()}")
+        try:
+            out_ext = target_format.lower()
+            output_filename = f"Juvason_Converted.{out_ext}"
             
-            except Exception as e:
-                st.error(f"Erreur sur {uploaded_file.name}: {e}")
-            finally:
-                if os.path.exists(tmp_path): os.remove(tmp_path)
+            # 1. VIDÉO & AUDIO (MoviePy)
+            if out_ext in ["mp4", "avi", "mov", "mkv", "mp3", "wav", "aac"]:
+                clip = VideoFileClip(tmp_path)
+                if out_ext in ["mp3", "wav", "aac"]:
+                    clip.audio.write_audiofile(output_filename)
+                else:
+                    clip.write_videofile(output_filename, codec="libx264")
+                
+            # 2. IMAGES (Pillow)
+            else:
+                img = Image.open(tmp_path).convert("RGB")
+                img.save(output_filename, target_format)
 
-        st.success("Conversion terminée ! Merci d'utiliser JUVASON.")
+            with open(output_filename, "rb") as f:
+                st.download_button("⬇️ TÉLÉCHARGER LE FICHIER CONVERTI", f, file_name=output_filename)
+                st.success("Conversion JUVASON réussie !")
+
+        except Exception as e:
+            st.error(f"Erreur : {e}")
